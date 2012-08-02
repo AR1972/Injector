@@ -1,11 +1,6 @@
-!!! CAUTION this module is experimental !!!
-===========================================
+Injector
+========
 
-be prepared to recover a bricked motherboard
-
-build process generates an ffs image.
-use MMtool.exe to replace MSOA in target firmware.
-flash modified firmware 
-use InstallData.cmd to write Marker, Key, Slp string to NVRAM.
-
-!!!for best results use MMTool to replace module!!!
+uses alternate method to inject SLIC into ACPI tables
+use LicenseData.exe to add key, marker & slp string to
+nvram.
