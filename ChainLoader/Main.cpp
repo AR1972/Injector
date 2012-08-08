@@ -293,7 +293,7 @@ EFI_STATUS
 	if (Status == EFI_SUCCESS) {
 		BOOTMGFW = BOOTMGFW_BAK;
 	}
-	else if (EFI_ERROR (Status)) {
+	else if (Status == EFI_NOT_FOUND) {
 		/* if BOOTMGFW.BAK not found search for BOOTMGFW.EFI */
 		Status = RootFs->Open(RootFs, &FileHandle, BOOTMGFW, EFI_FILE_MODE_READ, 0);
 		if (EFI_ERROR (Status)) {
@@ -355,6 +355,9 @@ EFI_STATUS
 				return Status;
 			}
 		}
+	}
+	else {
+		return Status;
 	}
 
 	//============================================================================//
