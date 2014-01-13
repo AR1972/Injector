@@ -9,23 +9,20 @@
 #include "libinstaller.h"
 #include <new>
 using namespace std;
-typedef NTSTATUS (WINAPI *QuerySystemInformation)(
-	SYSTEM_INFORMATION_CLASS SystemInformationClass,
-	PVOID SystemInformation,
-	ULONG SystemInformationLength,
-	PULONG ReturnLength);
-static QuerySystemInformation pNtQuerySystemInformation = NULL;
-void
-	LoadLib()
+//
+BOOL
+	Test(VOID)
 {
-	HMODULE hNtdll = NULL;
-	hNtdll = LoadLibrary(L"ntdll.dll");
-	if(hNtdll != NULL) {
-		pNtQuerySystemInformation = (QuerySystemInformation) GetProcAddress(hNtdll, "NtQuerySystemInformation");
+	UINT InBootOrderLength = 1;
+	USHORT* InBootOrder = new USHORT[InBootOrderLength];
+	BOOL RetVal = TRUE;
+	UINT RetLen = 0;
+	//
+	RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT)));
+	if (GetLastError() == ERROR_INVALID_PARAMETER) {
+		RetVal = FALSE;
 	}
-	else {
-		return;
-	}
+	return RetVal;
 }
 //
 int
@@ -45,16 +42,13 @@ int
 	ULONG BufferLength = 128;
 	//
 	try {
-		if (pNtQuerySystemInformation == NULL) {
-			LoadLib();
-		}
 		Buffer = new UCHAR[BufferLength];
 		UniqueId = new wchar_t[sizeof(GUID) * sizeof(wchar_t) + 4]();
 		DriveName = new wchar_t[MAX_PATH];
 		VolumeName = new wchar_t[MAX_PATH];
 		memset(Buffer, 0, BufferLength);
 		// get system volume.
-		pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS) 98, Buffer, BufferLength, &BufferLength);
+		NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS) 98, Buffer, BufferLength, &BufferLength);
 		wsprintf(VolumeName, L"\\\\.\\%s\0", (wchar_t*)(Buffer + 24));
 		hDevice = CreateFile(VolumeName, GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
 		delete[] Buffer;
@@ -118,7 +112,7 @@ UINT
 {
 	HANDLE hFind = NULL;
 	WIN32_FIND_DATA FindFileData;
-	static UINT ret = 0;
+	static UINT RetVal = 0;
 	wchar_t* File = NULL;
 	wchar_t* Recurse = NULL;
 	wchar_t* Find = NULL;
@@ -141,7 +135,7 @@ UINT
 				if (FindFileData.dwFileAttributes & ~FILE_ATTRIBUTE_DIRECTORY) {
 					wsprintf(File, L"%s\\%s\0" , Directory, FindFileData.cFileName);
 					if (DeleteFile(File)) {
-						ret++;
+						RetVal++;
 					}
 				}
 				if (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -151,13 +145,13 @@ UINT
 			}
 		} while(FindNextFile(hFind, &FindFileData));
 		if (RemoveDirectory(Directory)) {
-			ret++;
+			RetVal++;
 		}
 		FindClose(hFind);
 		delete[] Find;
 		delete[] File;
 		delete[] Recurse;
-		return ret;
+		return RetVal;
 	}
 	catch (bad_alloc) {
 		if(NULL != Find) {delete[] Find;}
@@ -175,9 +169,10 @@ BOOL
 	USHORT* InBootOrder = new USHORT[InBootOrderLength];
 	USHORT* OutBootOrder;
 	InBootOrder[0] = 0;
-	BOOL ret = FALSE;
+	BOOL RetVal = FALSE;
+	UINT RetLen = 0;
 	//
-	while (GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT))) == 0) {
+	while ((RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT)))) == 0) {
 		if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 			InBootOrderLength = 0;
 			break;
@@ -200,10 +195,10 @@ BOOL
 			}
 		}
 	}
-	ret = SetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, OutBootOrder, (OutBootOrderLength * sizeof(USHORT)));
+	RetVal = SetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, OutBootOrder, (OutBootOrderLength * sizeof(USHORT)));
 	delete[] InBootOrder;
 	delete[] OutBootOrder;
-	return ret;
+	return RetVal;
 }
 //
 BOOL
@@ -213,8 +208,10 @@ BOOL
 	UINT OutBootOrderLength = 0;
 	USHORT* InBootOrder = new USHORT[InBootOrderLength];
 	USHORT* OutBootOrder;
-	BOOL ret = FALSE;
-	while (GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT))) == 0) {
+	BOOL RetVal = FALSE;
+	UINT RetLen = 0;
+	//
+	while ((RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT)))) == 0) {
 		if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 			InBootOrderLength = 0;
 			break;
@@ -235,11 +232,11 @@ BOOL
 				OutBootOrderLength++;
 			}
 		}
-		ret = SetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, OutBootOrder, (OutBootOrderLength * sizeof(USHORT)));
+		RetVal = SetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, OutBootOrder, (OutBootOrderLength * sizeof(USHORT)));
 	}
 	delete[] InBootOrder;
 	delete[] OutBootOrder;
-	return ret;
+	return RetVal;
 }
 //
 BOOL
@@ -254,9 +251,10 @@ BOOL
 	UINT InBootOrderLength = 1;
 	USHORT* InBootOrder = new USHORT[InBootOrderLength];
 	InBootOrder[0] = 0;
-	BOOL ret = FALSE;
+	BOOL RetVal = FALSE;
+	UINT RetLen = 0;
 	//
-	while (GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, InBootOrderLength * sizeof(USHORT)) == 0) {
+	while ((RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, InBootOrderLength * sizeof(USHORT))) == 0) {
 		if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 			InBootOrderLength = 0;
 			break;
@@ -267,10 +265,13 @@ BOOL
 	}
 	if (InBootOrderLength) {
 		for (UINT i = 0; i <= InBootOrderLength - 1; i++) {
+			BufferLength = 16;
+			delete[] Buffer;
 			Buffer = new UCHAR[BufferLength];
+			memset(Buffer, 0, BufferLength);
 			wsprintf(EntryName, L"Boot%04d", InBootOrder[i]);
 			EntryId = InBootOrder[i];
-			while (GetFirmwareEnvironmentVariable(EntryName, EfiGuid, Buffer, BufferLength) == 0) {
+			while ((RetLen = GetFirmwareEnvironmentVariable(EntryName, EfiGuid, Buffer, BufferLength)) == 0) {
 				if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 					break;
 				}
@@ -279,16 +280,18 @@ BOOL
 				Buffer = new UCHAR[BufferLength];
 				memset(Buffer, 0, BufferLength);
 			}
-			for (UINT j = 0; j < (BufferLength - sizeof(FilePath) - 1); j++) {
-				if (memcmp((Buffer + j), FilePath, sizeof(FilePath)) == 0) {
-					ret = EfiBootOrderAddFirst(EntryId);
+			if (RetLen >= sizeof(FilePath)) {
+				for (UINT j = 0; j < (RetLen - sizeof(FilePath) - 1); j++) {
+					if (memcmp((Buffer + j), FilePath, sizeof(FilePath) - 1) == 0) {
+						RetVal = EfiBootOrderAddFirst(EntryId);
+					}
 				}
 			}
 		}
 	}
 	delete[] InBootOrder;
 	delete[] Buffer;
-	return ret;
+	return RetVal;
 }
 //
 UINT
@@ -303,9 +306,10 @@ UINT
 	UINT InBootOrderLength = 1;
 	USHORT* InBootOrder = new USHORT[InBootOrderLength];
 	InBootOrder[0] = 0;
-	UINT ret = 0;
+	UINT RetVal = 0;
+	UINT RetLen = 0;
 	//
-	while (GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, InBootOrderLength * sizeof(USHORT)) == 0) {
+	while ((RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, InBootOrderLength * sizeof(USHORT))) == 0) {
 		if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 			InBootOrderLength = 0;
 			break;
@@ -316,10 +320,13 @@ UINT
 	}
 	if (InBootOrderLength) {
 		for (UINT i = 0; i <= InBootOrderLength - 1; i++) {
+			BufferLength = 16;
+			delete[] Buffer;
 			Buffer = new UCHAR[BufferLength];
+			memset(Buffer, 0, BufferLength);
 			wsprintf(EntryName, L"Boot%04d", InBootOrder[i]);;
 			EntryId = InBootOrder[i];
-			while (GetFirmwareEnvironmentVariable(EntryName, EfiGuid, Buffer, BufferLength) == 0) {
+			while ((RetLen = GetFirmwareEnvironmentVariable(EntryName, EfiGuid, Buffer, BufferLength)) == 0) {
 				if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 					break;
 				}
@@ -328,18 +335,20 @@ UINT
 				Buffer = new UCHAR[BufferLength];
 				memset(Buffer, 0, BufferLength);
 			}
-			for (UINT j = 0; j < (BufferLength - sizeof(FilePath) - 1); j++) {
-				if (memcmp((Buffer + j), FilePath, sizeof(FilePath)) == 0) {
-					EfiDeleteBootEntry(EntryName);
-					EfiBootOrderDelete(EntryId);
-					ret++;
+			if (RetLen >= sizeof(FilePath)) {
+				for (UINT j = 0; j < (RetLen - sizeof(FilePath) - 1); j++) {
+					if (memcmp((Buffer + j), FilePath, sizeof(FilePath) - 1) == 0) {
+						EfiDeleteBootEntry(EntryName);
+						EfiBootOrderDelete(EntryId);
+						RetVal++;
+					}
 				}
 			}
 		}
 	}
 	delete[] InBootOrder;
 	delete[] Buffer;
-	return ret;
+	return RetVal;
 }
 //
 BOOL
@@ -363,8 +372,9 @@ ULONG
 	USHORT* InBootOrder = new USHORT[InBootOrderLength];
 	InBootOrder[0] = 0;
 	UINT index[99] = {};
+	UINT RetLen = 0;
 	//
-	while (GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT))) == 0) {
+	while ((RetLen = GetFirmwareEnvironmentVariable(TEXT("BootOrder"), EfiGuid, InBootOrder, (InBootOrderLength * sizeof(USHORT)))) == 0) {
 		if (GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 			delete[] InBootOrder;
 			return 0;
@@ -409,9 +419,6 @@ int
 		return ERROR_INVALID_PARAMETER;
 	}
 	try {
-		if (pNtQuerySystemInformation == NULL) {
-			LoadLib();
-		}
 		VolumeName = new wchar_t[MAX_PATH];
 		DriveName = new wchar_t[MAX_PATH];
 		// first part of boot entry.
@@ -436,7 +443,7 @@ int
 		BufferLength = 128;
 		Buffer = new UCHAR[BufferLength];
 		memset(Buffer, 0, BufferLength);
-		pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS) 98, Buffer, BufferLength, &BufferLength);
+		NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS) 98, Buffer, BufferLength, &BufferLength);
 		wsprintf(VolumeName, L"\\\\.\\%s\0", (wchar_t*)(Buffer + 24));
 		hDevice = CreateFile(VolumeName, GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL);
 		delete[] Buffer;
@@ -582,10 +589,7 @@ BOOL
 {
 	UINT ret = FALSE;
 	DWORD buffer[5] = {};
-	if (pNtQuerySystemInformation == NULL) {
-		LoadLib();
-	}
-	if (pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)90, buffer, sizeof(buffer), NULL) == 0 && buffer[4] == 2) {
+	if (NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)90, buffer, sizeof(buffer), NULL) == 0 && buffer[4] == 2) {
 		ret = TRUE;
 	}
 	return ret;
@@ -594,7 +598,7 @@ BOOL
 BOOL
 	GetFreeLetter (LPWSTR lpDeviceName)
 {
-	BOOL ret = FALSE;
+	BOOL RetVal = FALSE;
 	DWORD dwDrives = GetLogicalDrives();
 	DWORD dwMask = 1;
 	for (int i = 0; i < 26; i++) {
@@ -603,52 +607,46 @@ BOOL
 			}
 			else {
 				wsprintf((LPWSTR)lpDeviceName, L"%c:", 'A' + i);
-				ret = TRUE;
+				RetVal = TRUE;
 				break;
 			}
 		}
 		dwMask <<= 1;
 	}
-	return ret;
+	return RetVal;
 }
 //
 BOOL
 	MountEsp(wchar_t* DosDevice)
 {
-	BOOL ret = 0;
+	BOOL RetVal = 0;
 	UCHAR* Buffer = new UCHAR[128];
 	memset(Buffer, 0, 128);
-	if (pNtQuerySystemInformation == NULL) {
-		LoadLib();
-	}
-	if(pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)98, Buffer, 128, NULL) == 0) {
+	if(NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)98, Buffer, 128, NULL) == 0) {
 		UINT strlen = wcslen((wchar_t *)(Buffer + 8)) + 1;
 		wchar_t* pTargetPath = new wchar_t[strlen];
 		wcscpy_s(pTargetPath, strlen, (wchar_t *)(Buffer + 8));
-		ret = DefineDosDeviceW(DDD_RAW_TARGET_PATH|DDD_NO_BROADCAST_SYSTEM, DosDevice, pTargetPath);
+		RetVal = DefineDosDeviceW(DDD_RAW_TARGET_PATH|DDD_NO_BROADCAST_SYSTEM, DosDevice, pTargetPath);
 		delete[] pTargetPath;
 	}
 	delete[] Buffer;
-	return ret;
+	return RetVal;
 }
 //
 BOOL
 	UnmountEsp(wchar_t* DosDevice)
 {
-	BOOL ret = 0;
+	BOOL RetVal = 0;
 	UCHAR* Buffer = new UCHAR[128];
 	memset(Buffer, 0, 128);
-	if (pNtQuerySystemInformation == NULL) {
-		LoadLib();
-	}
-	if(pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)98, Buffer, 128, NULL) == 0) {
+	if(NtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)98, Buffer, 128, NULL) == 0) {
 		UINT strlen = wcslen((wchar_t *)(Buffer + 8)) + 1;
 		wchar_t* pTargetPath = new wchar_t[strlen];
 		wcscpy_s(pTargetPath, strlen, (wchar_t *)(Buffer + 8));
-		ret = DefineDosDeviceW(DDD_RAW_TARGET_PATH|DDD_REMOVE_DEFINITION|DDD_EXACT_MATCH_ON_REMOVE, DosDevice, pTargetPath);
+		RetVal = DefineDosDeviceW(DDD_RAW_TARGET_PATH|DDD_REMOVE_DEFINITION|DDD_EXACT_MATCH_ON_REMOVE, DosDevice, pTargetPath);
 		delete[] pTargetPath;
 	}
 	delete[] Buffer;
-	return ret;
+	return RetVal;
 }
 //

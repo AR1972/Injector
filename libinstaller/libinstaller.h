@@ -93,4 +93,6 @@ UINT
 int
 	UniqueId(wchar_t** Id);
 //
+BOOL
+	Test(VOID);
 #endif
