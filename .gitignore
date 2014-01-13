@@ -26,3 +26,5 @@ _ReSharper*/
 *.efi
 *.sdf
 *.opensdf
+*.ipch
+[Ii]pch*/
