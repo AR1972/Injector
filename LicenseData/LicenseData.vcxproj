@@ -88,7 +88,7 @@ COPY /Y "$(ProjectDir)Install.cmd" "$(SolutionDir)$(Configuration)\Install.cmd"<
   <ItemGroup>
     <None Include="ASUS.BIN" />
     <None Include="ASUS.XRM-MS" />
-    <None Include="InstallData.cmd" />
+    <None Include="Install.cmd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
