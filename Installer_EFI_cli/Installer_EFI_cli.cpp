@@ -16,6 +16,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	UCHAR Key[16] = {};
 	wchar_t EntryName[24] = {};
 	wchar_t Description[] = L"Injector\0";
+	wchar_t WindSLIC[] = L"WindSLIC\0";
 	wchar_t BootFile[] = L"\\BOOTX64.EFI\0";
 	ULONG BootEntryLength = 0;
 	HRSRC hResource;
@@ -31,6 +32,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	wchar_t* FilePath = NULL;
 	wchar_t* BootEntryPath = NULL;
 	//
+	if (!InitLib(TRUE)) {
+		wprintf_s(L"lib initialization error\n");
+		return 1;
+	}
 	if (!isEfi()) {
 		wprintf_s(L"system is not EFI\n");
 		return 2;
@@ -61,7 +66,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		if (argv[1] != NULL && wcscmp(argv[1], L"/u\0") == 0) {
 			wprintf_s(L"uninstalling Injector\n");
-			EfiDeleteWindSLICEntries();
+			EfiDeleteDescription(Description, sizeof(Description) - 1);
+			EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
 			EfiBootmgrAddFirst();
 			goto exit;
 		}
@@ -82,12 +88,14 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		else {
 			wprintf_s(L"create directory failed: %X\n", GetLastError());
-			EfiDeleteWindSLICEntries();
+			EfiDeleteDescription(Description, sizeof(Description) - 1);
+			EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
 			EfiBootmgrAddFirst();
 			goto exit;
 		}
 		// remove any ChainLoader boot entries.
-		EfiDeleteWindSLICEntries();
+		EfiDeleteDescription(Description, sizeof(Description) - 1);
+		EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
 		EfiBootmgrAddFirst();
 		// add ChainLoader boot entry.
 		EntryId = EfiFreeBootEntry();
@@ -121,6 +129,7 @@ exit:
 		delete[] Directory;
 		delete[] OldDirectory;
 		delete[] DosDevice;
+		InitLib(FALSE);
 		return ret;
 	}
 	catch (bad_alloc) { 
@@ -130,6 +139,7 @@ exit:
 		if(NULL != DosDevice) {delete[] DosDevice;}
 		if(NULL != FilePath) {delete[] FilePath;}
 		if(NULL != BootEntryPath) {delete[] BootEntryPath;}
+		InitLib(FALSE);
 		return ERROR_OUTOFMEMORY;
 	}
 }
