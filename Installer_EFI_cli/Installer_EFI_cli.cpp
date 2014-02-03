@@ -66,8 +66,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		if (argv[1] != NULL && wcscmp(argv[1], L"/u\0") == 0) {
 			wprintf_s(L"uninstalling Injector\n");
-			EfiDeleteDescription(Description, sizeof(Description) - 1);
-			EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
+			EfiDeleteDescription(Description);
+			EfiDeleteDescription(WindSLIC);
 			EfiBootmgrAddFirst();
 			goto exit;
 		}
@@ -88,14 +88,14 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		else {
 			wprintf_s(L"create directory failed: %X\n", GetLastError());
-			EfiDeleteDescription(Description, sizeof(Description) - 1);
-			EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
+			EfiDeleteDescription(Description);
+			EfiDeleteDescription(WindSLIC);
 			EfiBootmgrAddFirst();
 			goto exit;
 		}
 		// remove any ChainLoader boot entries.
-		EfiDeleteDescription(Description, sizeof(Description) - 1);
-		EfiDeleteDescription(WindSLIC, sizeof(WindSLIC) - 1);
+		EfiDeleteDescription(Description);
+		EfiDeleteDescription(WindSLIC);
 		EfiBootmgrAddFirst();
 		// add ChainLoader boot entry.
 		EntryId = EfiFreeBootEntry();
