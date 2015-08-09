@@ -21,6 +21,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -41,10 +42,22 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(SolutionDir)include\Protocol;$(SolutionDir)include\X64;$(SolutionDir)include</IncludePath>
+    <TargetName>BOOTX64</TargetName>
+    <TargetExt>.EFI</TargetExt>
+    <OutDir>$(ProjectDir)</OutDir>
+    <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+    <ExecutablePath>$(ExecutablePath);$(SolutionDir)Bin</ExecutablePath>
+    <GenerateManifest />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutiontDir)Include\Protocol;$(SolutionDir)Include\X64;$(SolutionDir)Include</IncludePath>
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(SolutionDir)Include\Protocol;$(SolutionDir)Include\X64;$(SolutionDir)Include</IncludePath>
     <ReferencePath />
     <LibraryPath />
     <SourcePath />
@@ -55,18 +68,55 @@
     <OutDir>$(ProjectDir)</OutDir>
     <IntDir>$(ProjectDir)$(Configuration)\</IntDir>
     <ExecutablePath>"$(SolutionDir)Bin";$(ExecutablePath)</ExecutablePath>
+    <LibraryWPath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;CHAINLOADER_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild />
+      <ExceptionHandling />
+      <SmallerTypeCheck />
+      <BasicRuntimeChecks />
+      <RuntimeLibrary />
+      <StructMemberAlignment />
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet />
+      <FloatingPointModel />
+      <PrecompiledHeaderFile />
+      <PrecompiledHeaderOutputFile />
+      <CompileAs>CompileAsC</CompileAs>
+      <ShowIncludes />
+      <UseFullPaths />
+      <OmitDefaultLibName>true</OmitDefaultLibName>
+      <ErrorReporting />
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>EFI Application</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies />
+      <ManifestFile />
+      <AllowIsolation />
+      <EnableUAC />
+      <UACExecutionLevel />
+      <UACUIAccess />
+      <SwapRunFromCD />
+      <SwapRunFromNET />
+      <Driver />
+      <EntryPointSymbol>EntryPoint</EntryPointSymbol>
+      <SectionAlignment>32</SectionAlignment>
+      <NoEntryPoint />
+      <SetChecksum />
+      <RandomizedBaseAddress />
+      <DataExecutionPrevention />
+      <TurnOffAssemblyGeneration />
+      <Profile />
+      <CLRImageType />
+      <LinkErrorReporting />
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -175,6 +225,7 @@
       <CLRImageType>
       </CLRImageType>
       <SectionAlignment>32</SectionAlignment>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
       <Command>GenFw.exe -e APPLICATION "$(ProjectDir)BOOTX64.EFI" -o "$(ProjectDir)BOOTX64.EFI"</Command>

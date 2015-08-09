@@ -71,8 +71,12 @@
       <AdditionalLibraryDirectories>..\libinstaller;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
-      <AdditionalManifestFiles>$(SolutionDir)Compatibilty.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
+      <AdditionalManifestFiles>$(ProjectDir)Compatibility.manifest %(AdditionalManifestFiles)</AdditionalManifestFiles>
+      <OutputManifestFile />
     </Manifest>
+    <ManifestResourceCompile>
+      <ResourceOutputFileName />
+    </ManifestResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
