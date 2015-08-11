@@ -63,7 +63,9 @@ MT.exe -manifest manifest.xml -outputresource:"$(OutDir)asus.exe";1</NMakeReBuil
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="ASUS.XRM-MS" />
-    <None Include="manifest.xml" />
+    <None Include="manifest.xml">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="asus.cpp" />
