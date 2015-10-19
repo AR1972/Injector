@@ -7,6 +7,7 @@
 //
 #include "stdafx.h"
 #include "LicenseData.h"
+#include <VersionHelpers.h>
 #include <iostream>
 #include <fstream>
 using namespace std;
@@ -14,58 +15,103 @@ using namespace std;
 GUID MarkerGuid = OA_MARKER;
 GUID PublicKeyGuid = OA_PUBLIC_KEY;
 GUID SlpGuid = OA_SLP10;
-typedef NTSTATUS (WINAPI *QuerySystemInformation)(
-	SYSTEM_INFORMATION_CLASS SystemInformationClass,
-	PVOID SystemInformation,
-	ULONG SystemInformationLength,
-	PULONG ReturnLength);
-QuerySystemInformation pNtQuerySystemInformation = NULL;
 //
-BOOL
-	AcquirePrivilage()
-{
-	// http://msdn.microsoft.com/en-us/library/windows/desktop/bb530716(v=vs.85).aspx
-	TOKEN_PRIVILEGES NewState;
-	LUID luid;
-	HANDLE hToken = NULL;
-	//
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY|TOKEN_QUERY_SOURCE, &hToken)) {
-		CloseHandle(hToken);
-		return FALSE;
-	}
-	if (!LookupPrivilegeValue(NULL, TEXT("SeSystemEnvironmentPrivilege"), &luid)) {
-		CloseHandle(hToken);
-		return FALSE;
-	}
-	NewState.PrivilegeCount = 1;
-	NewState.Privileges[0].Luid = luid;
-	NewState.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	if (!AdjustTokenPrivileges(hToken, FALSE, &NewState, sizeof(NewState), NULL, NULL)) {
-		CloseHandle(hToken);
-		return FALSE;
-	}
-	CloseHandle(hToken);
-	return TRUE;
+class InstallLib {
+	typedef NTSTATUS(WINAPI *QuerySystemInformation)(
+		SYSTEM_INFORMATION_CLASS SystemInformationClass,
+		PVOID SystemInformation,
+		ULONG SystemInformationLength,
+		PULONG ReturnLength);
+	typedef BOOL(WINAPI *nGetFirmwareType)(
+		PFIRMWARE_TYPE FirmwareType);
+public:
+	InstallLib();
+	~InstallLib();
+	BOOL AcquirePrivilage(VOID);
+	BOOL IsEFI;
+private:
+	HMODULE hNtdll = NULL;
+	HMODULE hKernel32 = NULL;
+	nGetFirmwareType pGetFirmwareType = NULL;
+	QuerySystemInformation pNtQuerySystemInformation = NULL;
+	BOOL isEfi(VOID);
+};
+InstallLib::InstallLib() {
+	IsEFI = isEfi();
 }
-//
-BOOL 
-	isEfi()
-{
-	UINT ret = FALSE;
-	DWORD buffer[5] = {};
-	if (pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)90, buffer, sizeof(buffer), NULL) == 0 && buffer[4] == 2) {
-		ret = TRUE;
+InstallLib::~InstallLib() {
+	if (hNtdll) {
+		pNtQuerySystemInformation = NULL;
+		FreeLibrary(hNtdll);
+		hNtdll = NULL;
 	}
-	return ret;
+	if (hKernel32) {
+		pGetFirmwareType = NULL;
+		FreeLibrary(hKernel32);
+		hKernel32 = NULL;
+	}
 }
+BOOL InstallLib::AcquirePrivilage(VOID) {
+		// http://msdn.microsoft.com/en-us/library/windows/desktop/bb530716(v=vs.85).aspx
+		TOKEN_PRIVILEGES NewState;
+		LUID luid;
+		HANDLE hToken = NULL;
+		//
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY | TOKEN_QUERY_SOURCE, &hToken)) {
+			CloseHandle(hToken);
+			return FALSE;
+		}
+		if (!LookupPrivilegeValue(NULL, TEXT("SeSystemEnvironmentPrivilege"), &luid)) {
+			CloseHandle(hToken);
+			return FALSE;
+		}
+		NewState.PrivilegeCount = 1;
+		NewState.Privileges[0].Luid = luid;
+		NewState.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+		if (!AdjustTokenPrivileges(hToken, FALSE, &NewState, sizeof(NewState), NULL, NULL)) {
+			CloseHandle(hToken);
+			return FALSE;
+		}
+		CloseHandle(hToken);
+		return TRUE;
+	}
+BOOL InstallLib::isEfi(VOID)
+	{
+		BOOL RetVal = FALSE;
+
+		if (IsWindows8OrGreater()) {
+			if (!hKernel32) {
+				hKernel32 = LoadLibrary(L"Kernel32.dll");
+			}
+			if (hKernel32) {
+				pGetFirmwareType = (nGetFirmwareType)GetProcAddress(hKernel32, "GetFirmwareType");
+			}
+			FIRMWARE_TYPE FirmwareType;
+			pGetFirmwareType(&FirmwareType);
+			RetVal = FirmwareType == FirmwareTypeUefi;
+		}
+		else if (IsWindows7OrGreater()) {
+			if (!hNtdll) {
+				hNtdll = LoadLibrary(L"ntdll.dll");
+			}
+			if (hNtdll) {
+				pNtQuerySystemInformation = (QuerySystemInformation)GetProcAddress(hNtdll, "NtQuerySystemInformation");
+			}
+			DWORD buffer[5] = {};
+			if (pNtQuerySystemInformation((SYSTEM_INFORMATION_CLASS)90, buffer, sizeof(buffer), NULL) == 0 && buffer[4] == 2) {
+				RetVal = TRUE;
+			}
+		}
+		return RetVal;
+	}
 //
 int _tmain(int argc, _TCHAR* argv[])
 {
 	//
+	InstallLib lib;
 	size_t slicsize = 0;
 	int status = 0;
 	ifstream slic;
-	HMODULE hNtdll = NULL;
 	char* buffer = NULL;
 	wchar_t* markerguid = NULL;
 	wchar_t* publickeyguid = NULL;
@@ -79,18 +125,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		wcout << L"out of memory\n";
 		goto Exit;
 	}
-	StringFromGUID2(MarkerGuid, markerguid, MAX_PATH);
-	StringFromGUID2(PublicKeyGuid, publickeyguid, MAX_PATH);
-	StringFromGUID2(SlpGuid, slpguid, MAX_PATH);
+	status = StringFromGUID2(MarkerGuid, markerguid, MAX_PATH);
+	status = StringFromGUID2(PublicKeyGuid, publickeyguid, MAX_PATH);
+	status = StringFromGUID2(SlpGuid, slpguid, MAX_PATH);
 	//
-	hNtdll = LoadLibrary(L"ntdll.dll");
-	if(hNtdll != NULL) {
-		pNtQuerySystemInformation = (QuerySystemInformation) GetProcAddress(hNtdll, "NtQuerySystemInformation");
-	}
-	else {
-		wcout << L"load ntdll.dll failed\n";
-		goto Exit;
-	}
 	if(argc < 2) {
 		wcout << L"no arguments\n";
 		status = 1;
@@ -100,8 +138,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	// delete 
 	//
 	if (wcscmp(argv[1], L"0") == 0) {
-		if (isEfi()) {
-			AcquirePrivilage();
+		if (lib.IsEFI) {
+			lib.AcquirePrivilage();
 			if (SetFirmwareEnvironmentVariable(TEXT("OaMarker"), markerguid, NULL, 0) != 0) {
 				wcout << L"marker successfully deleted\n";
 			}
@@ -133,8 +171,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	// write slp string
 	//
 	else if(wcscmp(argv[1], L"1") == 0 ) {
-		if(isEfi()) {
-			AcquirePrivilage();
+		if(lib.IsEFI) {
+			lib.AcquirePrivilage();
 			char slpstr[0x20] = {0};
 			int len = WideCharToMultiByte(CP_ACP, 0, argv[2], -1, slpstr, 0x20, 0, NULL);
 			if (SetFirmwareEnvironmentVariable(TEXT("OaSlp"), slpguid, slpstr, len) != 0) {
@@ -176,8 +214,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		Marker_t* marker = &slictable->Marker;
 		PublicKey_t* publickey = &slictable->PublicKey;
 
-		if (isEfi()) {
-			AcquirePrivilage();
+		if (lib.IsEFI) {
+			lib.AcquirePrivilage();
 			if (SetFirmwareEnvironmentVariable(TEXT("OaMarker"), markerguid, marker, sizeof(Marker_t)) != 0) {
 				wcout << L"marker successfully written\n";
 			}
@@ -200,11 +238,9 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 	}
 Exit:
-	if(hNtdll != NULL) {FreeLibrary(hNtdll);}
 	if(markerguid != NULL) {delete[] markerguid;};
 	if(publickeyguid != NULL) {delete[] publickeyguid;};
 	if(slpguid != NULL) {delete[] slpguid;}
 	if(buffer != NULL) {delete[] buffer;}
 	return status;
 }
-
